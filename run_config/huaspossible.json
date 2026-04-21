@@ -1,0 +1,31 @@
+
+{
+    "epochs": 100,
+    "batch_size": 32,
+    "patience": 30,
+    "model_spec": {
+        "n_tubes":3,
+        "n_cells":10000,
+        "n_markers":12,
+        "n_hidden_blocks":2,
+        "hidden_channels":9,
+        "hidden_layers":1,
+        "hidden_dense_units":3,
+        "dropout":0.0,
+        "pooling": "avg"
+    },
+    "optimizer_params":{
+        "lr": 1e-2,
+        "amsgrad": false,
+        "weight_decay": 0.0
+
+    },
+    "scheduler_params":{
+        "mode": "min",
+        "patience": 20
+    },
+    "resample_training": false,
+    "resample_val": false,
+    "tabular_features": ["Blastes moelle osseuse (%)", "age", "sexe"],
+    "expname": "huaspossible"
+}

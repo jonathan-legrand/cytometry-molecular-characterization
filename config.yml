@@ -1,0 +1,8 @@
+# Non standard yml, to be parsed with https://github.com/mkaranasou/pyaml_env
+FCS_PATH: !ENV /home/jonalegr/FCS_CPaleari/preprocessed_finalrepo
+RAW_PATH: !ENV ${HOME}/FCS_CPaleari/Raw
+META_PATH: !ENV ${HOME}/Datasets/FCS_complete_genotype.xlsx
+TEST_FCS: !ENV ${HOME}/Datasets/GEIL_test_set/preprocessed_trans-arcsinh_scaling-false_peacoqc-false
+TEST_META: !ENV ${HOME}/Datasets/GEIL_test_set/NGS_2013-2018.xlsx
+COMPLEMENTARY_TEST_META: !ENV ${HOME}/Datasets/GEIL_test_set/LAM 2013-2022_Données cliniques.xlsx
+PLOT_PATH: "plots"

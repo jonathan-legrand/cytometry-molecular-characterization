@@ -1,0 +1,12 @@
+plots/
+__pycache__
+**/__pycache__
+*.html
+runs/*
+models/*
+data/*
+prediction
+runcomps
+*.log
+sklearn-models
+output
