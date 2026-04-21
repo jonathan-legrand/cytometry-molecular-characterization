@@ -1,4 +1,3 @@
-# %%
 from pathlib import Path
 from datetime import datetime
 import os
@@ -10,20 +9,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import joblib
 
-from sklearn.preprocessing import StandardScaler, RobustScaler
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
-from sklearn.metrics import make_scorer, precision_recall_curve, roc_auc_score, fbeta_score
+from sklearn.metrics import make_scorer, fbeta_score
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import TunedThresholdClassifierCV
-from sklearn.ensemble import RandomForestClassifier
 
 from flowcyt.dataset import CytometryDataset, fetch_X_y_meta
 from flowcyt.utils import get_config, build_name
-from flowcyt.evaluation import METRICS, FoldResults, precision_at_k, precision_at_min_recall
 from flowcyt.mil_classifier import PatientPredictor, PatientPredictorWithClinical
 from flowcyt.scaling import CytoScaler
-from flowcyt.plotting import attribution_palette, tree_to_gating_max_path
 
 rng = np.random.default_rng(seed=1234)
 
@@ -44,11 +39,6 @@ sfk = StratifiedKFold(
 if __name__ == "__main__":
     target_col = sys.argv[1]
     n_cells = eval(sys.argv[2])
-    try:
-        make_plots = eval(sys.argv[3]) 
-        assert isinstance(make_plots, bool)
-    except IndexError:
-        make_plots = False
 
     dataset = CytometryDataset(
         DATAPATH,
@@ -61,21 +51,24 @@ if __name__ == "__main__":
     X, y, metadata = fetch_X_y_meta(dataset)
     
     if WITH_TABULAR:
-        patient_clf = PatientPredictorWithClinical(
-            cell_predictor=make_pipeline(StandardScaler(), DecisionTreeClassifier(min_samples_leaf=1000)),
-        )
-    else:
-        patient_clf = make_pipeline(
-            CytoScaler(),
-            PatientPredictor(
+        patient_predictor = PatientPredictorWithClinical(
                 cell_predictor=DecisionTreeClassifier(min_samples_leaf=1000),
                 tube_pooling_func=np.max
             )
-        )
+    else:
+        patient_predictor = PatientPredictor(
+                cell_predictor=DecisionTreeClassifier(min_samples_leaf=1000),
+                tube_pooling_func=np.max
+            )
+    
+    patient_clf = make_pipeline(
+        CytoScaler(),
+        patient_predictor,
+    )
+    patient_predictor_name = patient_predictor.__class__.__name__.lower()
+    cell_clf_name = patient_predictor.cell_predictor.__class__.__name__.lower()
         
     # Prepare logging
-    cell_clf_name = patient_clf.named_steps["patientpredictor"].cell_predictor.__class__.__name__
-    
     logname = build_name(
         "cell-level-model",
         predict=target_col,
@@ -94,7 +87,7 @@ if __name__ == "__main__":
     # because other dataset will have different
     # unscaled value. We want our pipeline to just expect
     # zscored values
-    for i, (train_idx, test_idx) in enumerate(sfk.split(X, y)): # Scaling should happen around here
+    for i, (train_idx, test_idx) in enumerate(sfk.split(X, y)):
 
         X_train = X[train_idx, ...]
 
@@ -130,84 +123,61 @@ if __name__ == "__main__":
     ## Grid search
     param_grid = {
         # Decision tree parameters
-        "patientpredictor__cell_predictor__max_depth": [3, 4],
-        "patientpredictor__cell_predictor__min_samples_leaf": [1, 100, 500],
-        "patientpredictor__cell_predictor__ccp_alpha": np.logspace(0, -6, 4),
+        f"{patient_predictor_name}__cell_predictor__max_depth": [3, 4],
+        f"{patient_predictor_name}__cell_predictor__min_samples_leaf": [1, 100, 500],
+        f"{patient_predictor_name}__cell_predictor__ccp_alpha": np.logspace(0, -6, 4),
 
         # Tube pooling function
-        "patientpredictor__tube_pooling_func": [np.max, np.mean, np.min],
+        f"{patient_predictor_name}__tube_pooling_func": [np.max, np.mean, np.min],
     }
 
-    # Grid scorer;
-    grid = GridSearchCV(
-        estimator=patient_clf,
-        param_grid=param_grid,
-        scoring="roc_auc",
-        cv=5,
-        n_jobs=-1,
-        verbose=1,
-    )
+    # We do not need to perform grid search on
+    # tabular, it's not the model that's tested
+    # on the external dataset
+    if not WITH_TABULAR:
+        # Grid scorer;
+        grid = GridSearchCV(
+            estimator=patient_clf,
+            param_grid=param_grid,
+            scoring="roc_auc",
+            cv=5,
+            n_jobs=-1,
+            verbose=1,
+            error_score="raise"
+        )
     
-    grid.fit(X, y)
-    best_patient_clf = grid.best_estimator_
-    pd.DataFrame(grid.cv_results_).to_csv(f"output/grid_search_{logname}.csv")
+        grid.fit(X, y)
+        best_patient_clf = grid.best_estimator_
+        os.makedirs("output", exist_ok=True)
+        pd.DataFrame(grid.cv_results_).to_csv(f"output/grid_search_{logname}.csv")
 
-    ## For thresh tuning we have two options
-    ## fbeta score with beta < 1 => Precision more important than recall 
-    ## or specify the min recall and optimize precision with that constraint
-    ## Min recall should not be to low though because those thresholds 
-    ## can get stupidly small
-    #scorer = make_scorer(
-    #    precision_at_min_recall,
-    #    min_recall=0.2
-    #)
-    scorer = make_scorer(
-        fbeta_score,
-        beta=0.5
-    )
+        scorer = make_scorer(
+            fbeta_score,
+            beta=0.5
+        )
 
-    tuned_clf = TunedThresholdClassifierCV(
-        estimator=best_patient_clf,
-        refit=True,
-        n_jobs=-1,
-        random_state=1234,
-        thresholds=100,
-        scoring=scorer
-    )
-    if WITH_TABULAR:
-        features = metadata.loc[:, cols]
-        features["cytometry"] = list(X)
-        tuned_clf.fit(features, y)
-        lr = tuned_clf.estimator.named_steps["patientpredictorwithclinical"].aggregator_.named_steps["logisticregression"]
-        print(dict(zip(["Age", "Blast %", "A", "B", "C"], list(lr.coef_[0]))))
-    else:
-        tuned_clf.fit(X, y)
-    # Store for evaluation on external dataset
-    clf_export_path = Path("sklearn-models") / (logname + ".joblib")
-    joblib.dump(tuned_clf, clf_export_path)
-    print("Classifier exported to", clf_export_path)
-    print(f"Best thresh :", tuned_clf.best_threshold_)
-    
-    if make_plots:
-        # Let's show the tree on the training set
-        tubes = ("A", "B", "C")
-        depth = 3
-        fig, axes = plt.subplots(depth, len(tubes), figsize=(15, 5 * depth))
-
-        for idx, tube in enumerate(tubes):
-            dfs = [dataset.get_df(i)[0][idx] for i in range(len(dataset))]
-            dfs = pd.concat(dfs, axis=0) #scaling
-
-            feature_names = dfs.columns
-            dfs = (dfs - scaler.mean_.squeeze()[idx]) / scaler.scale_.squeeze()[idx]
-            print(feature_names)
-
-            tube_predictor = tuned_clf.estimator.tube_predictors_[idx]
-            tree = tube_predictor.cell_predictor.named_steps["decisiontreeclassifier"]
-
-            hue = tree.predict_proba(dfs)[:, 1]
-            tree_to_gating_max_path(tree, dfs, axes[:, idx], hue=hue, feature_names_in=feature_names)
-        plt.show()
+        tuned_clf = TunedThresholdClassifierCV(
+            estimator=best_patient_clf,
+            refit=True,
+            n_jobs=-1,
+            random_state=1234,
+            thresholds=100,
+            scoring=scorer
+        )
+        if WITH_TABULAR:
+            features = metadata.loc[:, cols]
+            features["cytometry"] = list(X)
+            tuned_clf.fit(features, y)
+            lr = tuned_clf.estimator.named_steps["patientpredictorwithclinical"].aggregator_.named_steps["logisticregression"]
+            print(dict(zip(["Age", "Blast %", "A", "B", "C"], list(lr.coef_[0]))))
+        else:
+            tuned_clf.fit(X, y)
+        # Store for evaluation on external dataset
+        os.makedirs("sklearn-models", exist_ok=True)
+        clf_export_path = Path("sklearn-models") / (logname + ".joblib")
+        joblib.dump(tuned_clf, clf_export_path)
+        print("Classifier exported to", clf_export_path)
+        print(f"Best thresh :", tuned_clf.best_threshold_)
     
 
 # %%
