@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import sys
+import os
 
 from flowcyt.utils import name_to_dict
 from flowcyt.results import lazy_load_folds
@@ -29,7 +30,10 @@ if __name__ == "__main__":
         # For NPM
         expnames = [
             "age, sex, blast percentage_predict-NPM_stamp-20260421_155233",
+            "finalrepo_predict-NPM_configname-huaspossiblenotab_nparams-726_stamp-20260421_155442",
             "finalrepo_predict-NPM_configname-huaspossible_nparams-738_stamp-20260421_151856",
+            "cell-level-model_predict-NPM_ncells-10000_withtab-False_clf-decisiontreeclassifier_stamp-20260421_171507",
+            "cell-level-model_predict-NPM_ncells-100_withtab-True_clf-decisiontreeclassifier_stamp-20260421_170709"
         ]
         title = "$NPM1$-mutated AML prediction"
         letter = "A"
@@ -99,9 +103,10 @@ if __name__ == "__main__":
         row="expname",
         facet_kws=dict(xlim=(0, 1))
     )
-    plt.show()
+    plt.savefig(f"plots/predict-{TARGET_COL}_preds-distribution.png")
+    plt.close()
 
-    results_table = classifications.pivot_table(columns="short_name" ,values="correctly_classified", index="Patient")
+    results_table = classifications.pivot_table(columns="expname" ,values="correctly_classified", index="Patient")
 
     cmap = LinearSegmentedColormap.from_list('Custom', ("tab:red", "tab:green"), 2)
     norm = BoundaryNorm(boundaries=[0, 1], ncolors=2)
@@ -113,7 +118,8 @@ if __name__ == "__main__":
         cbar_kws=dict(cmap=cmap, norm=norm, ticks=[0, 1], format=mticker.FixedFormatter(["Bad classification", "Correct classification"])),
         linewidths=0.1
     )
-    plt.show()
+    plt.savefig(f"plots/predict-{TARGET_COL}_bad-vs-good.png")
+    plt.close()
 
     preds_table = classifications.pivot_table(columns="short_name" ,values="y_score", index="Patient").astype(float)
     labels = classifications.pivot_table(columns="short_name" ,values="y_true", index="Patient").astype(int)
@@ -131,38 +137,13 @@ if __name__ == "__main__":
         palette="Paired"
     )
     handles, labels = g.get_legend_handles_labels()
-    #g.legend(handles=handles, title="Models", labels=new_labels, loc="upper left")
     sns.move_legend(g, "upper left", bbox_to_anchor=(1, 1))
     plt.ylim(0, 1)
-
-    grouped = m.groupby("run_name").roc_auc
-    for exp, group in grouped:
-        print(exp, end=" : ")
-        print(f"mean = {group.median():.3f}", end=" ")
-        print(f"std = {group.std():.3f}", end="\n\n")
-
-    perfs = []
-    for expname in expnames:
-        exppath = Path("prediction") / expname
-        short_run_name = shorten(expname)
-        fold_output = lazy_load_folds(exppath)
-        y_test = []
-        y_pred = []
-        for i, output in enumerate(fold_output):
-            fr = FoldResults(output[0], output[1], fold=i)
-            perfs += fr.compute_perfs(run=short_run_name)
-            
-    perfs = pd.DataFrame(perfs)
-
-    plt.subplots(figsize=(10, 5))
-    sns.boxplot(perfs, x="run", y="score", hue="metric")
-    plt.ylim(-0.1, 1.1)
-    plt.xticks(rotation=90)
-
-    perfs.groupby(["run", "metric"])["score"].median().unstack()
+    plt.savefig(f"plots/predict-{TARGET_COL}_score-per-fold.png")
+    plt.close()
 
     # Permutation testing
-
+    os.makedirs("plots/permtest", exist_ok=True)
     def plot_perm_test(null_distribution, realised_stat):
         n_perms = len(null_distribution)
         f, ax = plt.subplots(figsize=(10, 5))
@@ -188,7 +169,6 @@ if __name__ == "__main__":
             continue
         perfs_a = df[pair[0]].values
         perfs_b = df[pair[1]].values
-        #res = wilcoxon(perfs_a, perfs_b, alternative="two-sided")
         realised_stat = stat_func(perfs_a, perfs_b)
         all_perfs = df.loc[:, pair].values.flatten()
         null_distribution = np.zeros(N_PERMS)
@@ -205,7 +185,8 @@ if __name__ == "__main__":
         if p_value < 0.1:
             plot_perm_test(null_distribution, realised_stat)
             plt.title(f"{pair[0]} - {pair[1]}\np-value = {p_value}")
-            plt.show()
+            plt.savefig(f"plots/permtest/predict-{TARGET_COL}_{pair}.png")
+            plt.close()
 
         test_results.append(
             dict(classifier_a=pair[0], classifier_b=pair[1], statistic=realised_stat, p_value=p_value)
@@ -291,5 +272,4 @@ if __name__ == "__main__":
 
     ax.set_yticks([i/5 for i in range(3,6)])
     plt.savefig(f"plots/{title}.svg", dpi=1000)
-
-    test_results
+    plt.close()
