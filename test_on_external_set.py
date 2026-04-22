@@ -35,6 +35,7 @@ high = cmap(1.0)
 colors = [low, high]
 tubes = ("A", "B", "C")
 plots_path = Path(config["PLOT_PATH"])
+disp_tubes = tubes # Controls which trees we want to plot
 
 def replace_text(obj):
         import re
@@ -89,12 +90,6 @@ if __name__ == "__main__":
     estimator_dct = name_to_dict(estimator_name)
     target_col = estimator_dct["predict"]
     n_cells = eval(estimator_dct["ncells"])
-    if "tube" in estimator_dct.keys():
-        tubes = (estimator_dct["tube"],)
-        print("Inference on single tube")
-    else:
-        tubes = ("A", "B", "C")
-        print("Using all tubes for inference")
 
     # Compute prediction scores
     scores = []
@@ -125,7 +120,11 @@ if __name__ == "__main__":
         scores.append(realised_scores)
         
         # Tube level scores
-        X_scaled = estimator.named_steps["cytoscaler"].transform(X)
+        try:
+            X_scaled = estimator.named_steps["cytoscaler"].transform(X)
+        except KeyError:
+            print("No scaler found, keep raw values")
+            X_scaled = X
         stacked_probas = estimator.named_steps["patientpredictor"].compute_stacked_probas(X_scaled)
         for idx, tube in enumerate(tubes):
             print(f"Tube {tube}")
@@ -293,16 +292,6 @@ if __name__ == "__main__":
         else:
             fig.tight_layout()
 
-        #axes[0, 0].text(
-        #    -2.5,
-        #    2.4,
-        #    letter,
-        #    transform=ax.transAxes,
-        #    fontsize=30,
-        #    fontweight='bold',
-        #    va='top',
-        #    ha='left'
-        #)
 
         plt.savefig(
             plots_path / f"fig-biplots_predict-{target_col}_ncells-{n_cells}",
@@ -311,9 +300,14 @@ if __name__ == "__main__":
         plt.close()
 
         # plot tree themselves
-        fig, axes = plt.subplots(3, 1, figsize=(11, 12))
-        for idx, tube in enumerate(tubes):
-            ax = axes[idx]
+        fig, axes = plt.subplots(len(disp_tubes), 1, figsize=(11, 4*len(disp_tubes)))
+        for idx, tube in enumerate(disp_tubes):
+            # In the edge case where we only want to display one tube,
+            # then axes is not subscriptable
+            if len(disp_tubes) == 1:
+                ax = axes
+            else:
+                ax = axes[idx]
             tube_predictor = patient_predictor.tube_predictors_[idx]
             tree = tube_predictor.cell_predictor
 
@@ -335,7 +329,7 @@ if __name__ == "__main__":
             ax.text(
                 -0.0,
                 1.,
-                tube,
+                f"Tube {tube}",
                 transform=ax.transAxes,
                 fontsize=20,
                 fontweight='bold',
@@ -343,6 +337,6 @@ if __name__ == "__main__":
                 ha='left'
             )
             fig.show()
-        plt.savefig(f"plots/tree_target-{target_col}.png", dpi=1000, bbox_inches="tight")
+        plt.savefig(f"plots/tree_target-{target_col}_tubes-{disp_tubes}.png", dpi=1000, bbox_inches="tight")
         plt.close()
 
