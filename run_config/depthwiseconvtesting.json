@@ -1,0 +1,27 @@
+{
+    "epochs": 10,
+    "batch_size": 32,
+    "lr": 1e-3,
+    "patience": 50,
+    "model_spec": {
+        "n_tubes":3,
+        "n_cells":5000,
+        "n_markers":12,
+        "n_hidden_blocks":0,
+        "hidden_channels":9,
+        "hidden_layers":2,
+        "hidden_dense_units":9,
+        "dropout":0.0
+    },
+    "optimizer_params":{
+        "lr": 1e-3,
+        "amsgrad": false
+    },
+    "scheduler_params":{
+        "mode": "min",
+        "patience": 10
+    },
+    "resample_training": true,
+    "resample_val": false,
+    "expname": "debug"
+}

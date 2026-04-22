@@ -1,0 +1,32 @@
+
+{
+    "epochs": 100,
+    "batch_size": 32,
+    "patience": 30,
+    "model_spec": {
+        "n_tubes":3,
+        "n_cells":100,
+        "n_markers":12,
+        "n_hidden_blocks":2,
+        "hidden_channels":12,
+        "hidden_layers":2,
+        "hidden_dense_units":8,
+        "dropout":0.0,
+        "L":10,
+        "pooling": "avg"
+    },
+    "optimizer_params":{
+        "lr": 1e-2,
+        "amsgrad": false,
+        "weight_decay": 0.1
+
+    },
+    "scheduler_params":{
+        "mode": "min",
+        "patience": 20
+    },
+    "resample_training": true,
+    "resample_val": false,
+    "tabular_features": ["Blastes moelle osseuse (%)", "age", "sexe"],
+    "expname": "huspirit"
+}
