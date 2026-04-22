@@ -3,10 +3,8 @@ from datetime import datetime
 import os
 import sys
 
-import seaborn as sns
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import joblib
 
 from sklearn.pipeline import make_pipeline
@@ -62,7 +60,6 @@ if __name__ == "__main__":
             )
     
     patient_clf = make_pipeline(
-        CytoScaler(),
         patient_predictor,
     )
     patient_predictor_name = patient_predictor.__class__.__name__.lower()
@@ -179,5 +176,3 @@ if __name__ == "__main__":
         print("Classifier exported to", clf_export_path)
         print(f"Best thresh :", tuned_clf.best_threshold_)
     
-
-# %%
