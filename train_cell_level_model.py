@@ -60,7 +60,8 @@ if __name__ == "__main__":
             )
     
     patient_clf = make_pipeline(
-        patient_predictor,
+        CytoScaler(),
+        patient_predictor
     )
     patient_predictor_name = patient_predictor.__class__.__name__.lower()
     cell_clf_name = patient_predictor.cell_predictor.__class__.__name__.lower()
@@ -146,7 +147,8 @@ if __name__ == "__main__":
         grid.fit(X, y)
         best_patient_clf = grid.best_estimator_
         os.makedirs("output", exist_ok=True)
-        pd.DataFrame(grid.cv_results_).to_csv(f"output/grid_search_{logname}.csv")
+        df = pd.DataFrame(grid.cv_results_)
+        df.to_csv(f"output/grid_search_{logname}.csv")
 
         scorer = make_scorer(
             fbeta_score,
@@ -161,18 +163,47 @@ if __name__ == "__main__":
             thresholds=100,
             scoring=scorer
         )
-        if WITH_TABULAR:
-            features = metadata.loc[:, cols]
-            features["cytometry"] = list(X)
-            tuned_clf.fit(features, y)
-            lr = tuned_clf.estimator.named_steps["patientpredictorwithclinical"].aggregator_.named_steps["logisticregression"]
-            print(dict(zip(["Age", "Blast %", "A", "B", "C"], list(lr.coef_[0]))))
-        else:
-            tuned_clf.fit(X, y)
+        
+        tuned_clf.fit(X, y)
+        
         # Store for evaluation on external dataset
         os.makedirs("sklearn-models", exist_ok=True)
         clf_export_path = Path("sklearn-models") / (logname + ".joblib")
         joblib.dump(tuned_clf, clf_export_path)
         print("Classifier exported to", clf_export_path)
         print(f"Best thresh :", tuned_clf.best_threshold_)
+
+        # Export cv results
+        ## Find best result (rank_test_score == 1)
+        best_row = df.sort_values(by="rank_test_score", ascending=True).iloc[0]
+    
+        ## Extract key parameters
+        tree_key = f"param_{patient_predictor_name}__cell_predictor"
+        max_depth = int(best_row[f'{tree_key}__max_depth'])
+        min_samples_leaf = int(best_row[f'{tree_key}__min_samples_leaf'])
+        ccp_alpha = float(best_row[f'{tree_key}__ccp_alpha'])
+        pooling_name = best_row['param_patientpredictor__tube_pooling_func'].__name__
+    
+        ## Get scores
+        mean_test_score = best_row['mean_test_score']
+        std_test_score = best_row['std_test_score']
+    
+        results = {
+            'Gene': target_col,
+            'Max Depth': max_depth,
+            'Min Samples Leaf': min_samples_leaf,
+            'CCP Alpha': f"{ccp_alpha:.2e}",
+            'Pooling Function': pooling_name,
+            'Mean ROC-AUC': f"{mean_test_score:.2f}",
+            'Std ROC-AUC': f"{std_test_score:.2f}",
+            'Threshold': f"{tuned_clf.best_threshold_:.2f}"
+        }
+
+        # Create a dataframe with results and export
+        # as csv because it's easier to copy paste than
+        # json
+        results_df = pd.DataFrame(results, index=[0])
+        output_file_csv = Path(f"output/best-hyperparameters_{logname}.csv")
+        results_df.to_csv(output_file_csv, index=False)
+        print(f"Best params exported to: {output_file_csv}")
     
