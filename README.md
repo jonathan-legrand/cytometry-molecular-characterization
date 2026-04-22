@@ -19,14 +19,14 @@ This repository contains the preprocessing scripts, training pipelines, evaluati
 - `plot_results.py`: Generates comparison plots and statistical tests for model evaluation
 - `test_on_external_set.py`: Evaluates final model on external test dataset
 
-### Core Modules
+### Modules
 - `flowcyt/`: Python package containing model architectures, data loading, training utilities, and evaluation metrics
-- `renv/`: R environment configuration for reproducible analysis
 
 ### Configuration
 - `config.yml`: Main configuration file specifying data paths and analysis parameters
 - `env.yml`: Conda environment specification with Python dependencies
 - `run_config/`: Directory containing JSON configuration files for different deep learning model runs
+- `renv/`: R environment configuration for reproducible analysis
 
 ## Setup
 
@@ -58,8 +58,8 @@ Update `config.yml` with paths to preprocessed data:
 ### 3. Model Training
 Train models in any order; the exploration set is split into train/validation (90/10) with 10-fold cross-validation:
 ```bash
-python train_age_sex.py <target_col> <config_name> <prefix>
-python train_cell_level_model.py <target_col> <config_name> <prefix>
+python train_age_sex.py <target_col>
+python train_cell_level_model.py <target_col> <n_cells>
 python train_network.py <target_col> <config_name> <prefix>
 ```
 
@@ -73,7 +73,7 @@ python plot_results.py <target_col>
 
 Example: `python plot_results.py NPM`
 
-This generates boxplots with statistical significance testing via permutation tests.
+This generates boxplots with statistical significance testing via permutation tests in the `plots` directory.
 
 ### 5. External Validation
 Evaluate the best model on external test dataset:
