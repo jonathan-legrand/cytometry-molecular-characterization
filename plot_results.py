@@ -33,7 +33,7 @@ if __name__ == "__main__":
             "finalrepo_predict-NPM_configname-huaspossiblenotab_nparams-726_stamp-20260421_155442",
             "finalrepo_predict-NPM_configname-huaspossible_nparams-738_stamp-20260421_151856",
             "cell-level-model_predict-NPM_ncells-10000_withtab-False_clf-decisiontreeclassifier_stamp-20260421_171507",
-            "cell-level-model_predict-NPM_ncells-100_withtab-True_clf-decisiontreeclassifier_stamp-20260421_170709"
+            "cell-level-model_predict-NPM_ncells-10000_withtab-True_clf-decisiontreeclassifier_stamp-20260421_175049"
         ]
         title = "$NPM1$-mutated AML prediction"
         letter = "A"
