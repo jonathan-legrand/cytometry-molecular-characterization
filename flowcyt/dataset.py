@@ -73,7 +73,8 @@ class CytometryDataset(Dataset):
             return_patient_id:bool=False,
             tabular_features:tuple=None,
             target_col:str="FLT3",
-            tubes:tuple=TUBES
+            tubes:tuple=TUBES,
+            filter_npm=False
         ):
         if isinstance(dpath, str):
             dpath = Path(dpath)
@@ -96,8 +97,12 @@ class CytometryDataset(Dataset):
 
         print("before", self.__len__())
         self._validate_n_tubes()
-        self._drop_nf()
+        self._drop_nf(target_col)
+        if filter_npm:
+            self._filter_npm()
         print("after", self.__len__())
+
+        
 
     def _build_fc_dataset(self, dpath, mpath, n_cells):
         metadata = pd.read_excel(mpath)
@@ -125,15 +130,28 @@ class CytometryDataset(Dataset):
                 drop_idx = self.metadata[self.metadata.Patient == patient].index
                 self.metadata.drop(index=drop_idx, inplace=True)
 
-    def _drop_nf(self):
+    def _drop_nf(self, target_col):
         for _, row in self.metadata.iterrows():
-            target = row[self.target_col]
+            target = row[target_col]
             if "NF" in target or "NR" in target:
                 patient = row.Patient
                 print(f"{patient} has NF status, removing")
-                self.fc_dataset.pop(patient)
-                drop_idx = self.metadata[self.metadata.Patient == patient].index
-                self.metadata.drop(index=drop_idx, inplace=True)
+                self._delete_patient(patient)
+                
+    def _delete_patient(self, patient):
+        self.fc_dataset.pop(patient)
+        drop_idx = self.metadata[self.metadata.Patient == patient].index
+        self.metadata.drop(index=drop_idx, inplace=True)
+
+    def _filter_npm(self):
+        """
+        Experiment to check that FLT3 / CD34- asssociation
+        """
+        # We want to remove NF for NPM even though FLT3 is the target
+        self._drop_nf("NPM")
+        for _, row in self.metadata.iterrows():
+            if NPM_MAPPING[row.NPM] == 1:
+                self._delete_patient(row.Patient)
 
     def __getitem__(self, index):
         features, label, row = self.get_numpy(index)

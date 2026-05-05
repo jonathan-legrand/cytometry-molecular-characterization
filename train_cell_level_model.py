@@ -44,7 +44,8 @@ if __name__ == "__main__":
         return_patient_id=True,
         resample_cells=False,
         target_col=target_col,
-        scaler=None
+        scaler=None,
+        filter_npm=False
     )
     X, y, metadata = fetch_X_y_meta(dataset)
     
