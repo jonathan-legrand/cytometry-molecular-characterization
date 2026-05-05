@@ -24,8 +24,8 @@ library(glue)
 get_spillover_matrix <- function(obj) {
   if (!is.null(obj$SPILL)) {
     return(obj$SPILL)
-  } else if (!is.null(obj$SPILLOVER)) {
-    return(obj$SPILLOVER)
+  } else if (!is.null(obj$`$SPILLOVER`)) {
+    return(obj$`$SPILLOVER`)
   } else {
     stop("No spillover matrix found in the object.")
   }
@@ -81,4 +81,4 @@ for (file in files) {
   
 }
 
-print(glue("Outpout stored in {dir_prepr}"))
+print(glue("Output stored in {dir_prepr}"))
