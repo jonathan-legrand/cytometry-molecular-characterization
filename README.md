@@ -7,7 +7,11 @@ This project implements three prediction methods :
 2. **Deep learning model**: Convolutional Neural Network (CNN) processing flow cytometry data (adaptation from Hu et al. 2020 - see train_network.py for reference)
 3. **Multiple instance learning (MIL) model**: Each patient is represented as a bag of cells, where individual cells serve as instances, and the patient-level mutation status defines the bag label. A model is trained to predict the bag-level label from each instance individually. At inference time, bag-level predictions are obtained by aggregating instance-level predictions. This approach is usually referred to as single-instance learning in the MIL literature. In this study, decision trees were employed as classifiers due to their inherent interpretability.
 
-This repository contains the preprocessing scripts, training pipelines, evaluation tools, and configuration files used for this study.
+This repository contains the preprocessing scripts, training pipelines, evaluation tools, and configuration files used for this study. The associated paper is available on HAL:
+
+Legrand, J., Mimoun, A., Denis de Senneville, B., Bidet, A., Dumas, P.-Y., & Etchegaray, C. (2026). **Interpretable Multi-Instance Learning Enables Early Prediction of Key Molecular Alterations from Routine Flow Cytometry in Acute Myeloid Leukemia.** https://hal.science/hal-05739223
+
+
 
 ## Project Structure
 
